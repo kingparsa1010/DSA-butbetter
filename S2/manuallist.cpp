@@ -11,16 +11,17 @@
 
 // Question 4: Design a program with manual input for a simple list.
 /*
- * Simple Stack Implementation: */ #include <S2/simplestack.hpp> /*
- */
-/*
  * Simple Queue Implementation: */ #include <S2/simplequeue.hpp> /*
  */
+/*
+ * Shared input helpers: */ #include <S2/manualinput.hpp> /*
+ */
 
+#include <cstdio>
 #include <iostream>
-#include <limits>
 #include <sstream>
 #include <string>
+#include <string_view>
 
 enum class Operation
 {
@@ -55,120 +56,114 @@ constexpr std::string_view to_string( Operation op )
         case Operation::Print:
             return "PRINT";
     }
+    return "";
 }
 
 int main()
 {
     long numOperations;
-    long iterator;
+    size_t index;
     SimpleArray<std::string> list{};
     SimpleQueue<std::string> results{};
     std::string user_input{};
-    std::istringstream user_input_stream;
     std::string current_token;
 
-    std::cin >> user_input;
-    std::cin.ignore( std::numeric_limits<std::streamsize>::max(), '\n' );
-    numOperations = std::strtol( user_input.c_str(), nullptr, 10 );
-    user_input.clear();
+    if ( !ReadOperationCount( numOperations ) )
+        return 1;
 
-    if ( numOperations <= 0 )
-        throw Exception( ILLEGAL_METHOD_CALL, "Operations must be a positive integer!\n" );
-
-    do
+    while ( numOperations > 0 && std::getline( std::cin, user_input ) )
     {
         SimpleArray<std::string> command{};
+        std::istringstream user_input_stream( user_input );
 
-        std::getline( std::cin, user_input );
-        user_input_stream = std::istringstream( user_input );
+        numOperations--;
 
         while ( user_input_stream >> current_token )
             command.Insert( command.Size(), current_token );
 
-        if ( command.Size() == 0 )
+        const size_t argc = command.Size();
+
+        if ( argc == 0 )
         {
             //malformed command
-            numOperations--;
             continue;
         }
 
-        if ( command[0] == to_string( Operation::Append ) )
+        const std::string operation = command[0];
+
+        if ( operation == to_string( Operation::Append ) )
         {
-            try
-            {
-                list.Insert( list.Size(), command[1].c_str() );
-            } catch ( Exception& e )
-            {
-                throw Exception( e.status, "Failed insertion at " + command[1] );
-            }
-        } else if ( command[0] == to_string( Operation::Insert ) )
-        {
-            try
-            {
-                list.Insert( std::stol( command[1].c_str() ), command[2].c_str() );
-            } catch ( ... )
-            {
+            if ( argc < 2 )
                 results.Push( "ERROR" );
-            }
-        } else if ( command[0] == to_string( Operation::Delete ) )
+            else
+                list.Insert( list.Size(), command[1] );
+        } else if ( operation == to_string( Operation::Insert ) )
         {
-            try
-            {
-                results.Push( list.Get( std::stol( command[1].c_str() ) ) );
-                list.Remove( std::stol( command[1].c_str() ) );
-            } catch ( ... )
-            {
+            if ( argc < 3 || !ParseIndex( command[1], index ) || index > list.Size() )
                 results.Push( "ERROR" );
-            }
-        } else if ( command[0] == to_string( Operation::Get ) )
+            else
+                list.Insert( index, command[2] );
+        } else if ( operation == to_string( Operation::Delete ) )
         {
-            try
-            {
-                results.Push( list.Get( std::stol( command[1].c_str() ) ) );
-            } catch ( ... )
-            {
+            if ( argc < 2 || !ParseIndex( command[1], index ) || index >= list.Size() )
                 results.Push( "ERROR" );
+            else
+            {
+                results.Push( list.Get( index ) );
+                list.Remove( index );
             }
-        } else if ( command[0] == to_string( Operation::Set ) )
+        } else if ( operation == to_string( Operation::Get ) )
         {
-            try
-            {
-                list.Remove( std::stol( command[1].c_str() ) );
-                list.Insert( std::stol( command[1].c_str() ), command[2].c_str() );
-            } catch ( ... )
-            {
+            if ( argc < 2 || !ParseIndex( command[1], index ) || index >= list.Size() )
                 results.Push( "ERROR" );
-            }
-        } else if ( command[0] == to_string( Operation::Find ) )
+            else
+                results.Push( list.Get( index ) );
+        } else if ( operation == to_string( Operation::Set ) )
         {
-            try
+            // Validate before touching the list, so a bad SET never deletes the old value.
+            if ( argc < 3 || !ParseIndex( command[1], index ) || index >= list.Size() )
+                results.Push( "ERROR" );
+            else
+                list.Set( index, command[2] );
+        } else if ( operation == to_string( Operation::Find ) )
+        {
+            if ( argc < 2 )
+                results.Push( "ERROR" );
+            else
             {
-                results.Push( std::to_string( list.Find( command[1].c_str() ) ) );
-            } catch ( ... )
-            {
-                results.Push( "-1" );
+                try
+                {
+                    results.Push( std::to_string( list.Find( command[1] ) ) );
+                } catch ( Exception & )
+                {
+                    results.Push( "-1" );
+                }
             }
-        } else if ( command[0] == to_string( Operation::Size ) )
+        } else if ( operation == to_string( Operation::Size ) )
         {
             results.Push( std::to_string( list.Size() ) );
-        } else if ( command[0] == to_string( Operation::Print ) )
+        } else if ( operation == to_string( Operation::Print ) )
         {
             std::string output{};
-            if ( list.Size() == 0 )
+            const size_t size = list.Size();
+
+            if ( size == 0 )
                 output = "EMPTY";
             else
-                for ( iterator = 0; iterator < list.Size(); iterator++ )
-                    output.append( list[iterator] + ' ' );
+                for ( index = 0; index < size; index++ )
+                {
+                    if ( index != 0 )
+                        output += ' ';
+                    output += list[index];
+                }
             results.Push( output );
+        } else
+        {
+            std::fprintf( stderr, "Unknown operation \"%s\" ignored.\n", operation.c_str() );
         }
+    }
 
-        numOperations--;
-    } while ( numOperations > 0 );
-
-    do
-    {
-        std::printf("%s\n", results.Pop().c_str() );
-    } while ( results.Size() > 0 );
+    PrintResults( results );
 
     return 0;
 }

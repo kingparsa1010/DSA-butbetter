@@ -1,21 +1,27 @@
-add_executable(LinkedListsTests
-    tester.c
-    linkedlists.c )
+# One executable per list implementation, so every program can run on each of them.
+set( DSA_LIST_IMPLEMENTATIONS
+        Linked linkedlists.c LINKED_LISTS
+        DoublyLinked doublylinkedlists.c LINKED_LISTS
+        Contiguous contiguouslists.c CONTIGUOUS_LISTS )
 
-add_executable(ContiguousListsTests
-    tester.c
-    contiguouslists.c )
+while ( DSA_LIST_IMPLEMENTATIONS )
+    list( POP_FRONT DSA_LIST_IMPLEMENTATIONS kind source define )
 
-add_executable(LinkedListsSample
-    sample.cpp
-    linkedlists.c )
+    add_executable( ${kind}ListsTests
+            tester.c
+            ${source} )
 
-add_executable(ContiguousListsSample
-    sample.cpp
-    contiguouslists.c )
+    add_executable( ${kind}ListsSample
+            sample.cpp
+            ${source} )
 
-target_compile_definitions(LinkedListsSample PRIVATE
-        LINKED_LISTS )
+    target_compile_definitions( ${kind}ListsSample PRIVATE
+            ${define} )
 
-target_compile_definitions(ContiguousListsSample PRIVATE
-        CONTIGUOUS_LISTS )
+    add_test( NAME ${kind}ListsTests COMMAND ${kind}ListsTests )
+
+    # The sample runs its self-test first; option 5 then exits the menu.
+    dsa_add_io_test( ${kind}ListsSample ${kind}ListsSample
+            ${CMAKE_CURRENT_SOURCE_DIR}/tests/sample_exit.in
+            ${CMAKE_CURRENT_SOURCE_DIR}/tests/sample_exit_${kind}.out )
+endwhile ()

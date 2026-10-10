@@ -1,0 +1,44 @@
+name: Build and test
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  linux:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: gcc
+            cc: gcc
+            cxx: g++
+            flags: ""
+          - name: clang
+            cc: clang
+            cxx: clang++
+            flags: ""
+          - name: sanitizers
+            cc: clang
+            cxx: clang++
+            flags: "-fsanitize=address,undefined -fno-omit-frame-pointer"
+    name: ${{ matrix.name }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure
+        run: >
+          cmake -S . -B build
+          -DCMAKE_C_COMPILER=${{ matrix.cc }}
+          -DCMAKE_CXX_COMPILER=${{ matrix.cxx }}
+          "-DCMAKE_C_FLAGS=${{ matrix.flags }}"
+          "-DCMAKE_CXX_FLAGS=${{ matrix.flags }}"
+
+      - name: Build
+        run: cmake --build build -j
+
+      - name: Test
+        env:
+          UBSAN_OPTIONS: halt_on_error=1
+        run: ctest --test-dir build --output-on-failure

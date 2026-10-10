@@ -11,16 +11,16 @@
 
 // Question 3: Design a program with manual input for a simple queue.
 /*
- * Simple Stack Implementation: */ #include <S2/simplestack.hpp> /*
- */
-/*
  * Simple Queue Implementation: */ #include <S2/simplequeue.hpp> /*
  */
+/*
+ * Shared input helpers: */ #include <S2/manualinput.hpp> /*
+ */
 
-#include <algorithm>
+#include <cstdio>
 #include <iostream>
-#include <limits>
 #include <string>
+#include <string_view>
 
 enum class Operation
 {
@@ -46,6 +46,7 @@ constexpr std::string_view to_string( Operation op )
         case Operation::Empty:
             return "EMPTY";
     }
+    return "";
 }
 
 int main()
@@ -56,73 +57,44 @@ int main()
     std::string user_input{};
     std::string operation{};
     std::string value{};
-    size_t space_pos;
 
-    std::cin >> user_input;
-    numOperations = std::strtol( user_input.c_str(), nullptr, 10 );
-    user_input.clear();
+    if ( !ReadOperationCount( numOperations ) )
+        return 1;
 
-    if ( numOperations <= 0 )
-        throw Exception( ILLEGAL_METHOD_CALL, "Operations must be a positive integer!\n" );
-
-    do
+    while ( numOperations > 0 && std::getline( std::cin, user_input ) )
     {
         numOperations--;
 
-        std::getline( std::cin, user_input );
-
-        space_pos = user_input.find(' ');
-
-        if ( space_pos != std::string::npos )
-        {
-            operation = user_input.substr( 0, space_pos );
-            value = user_input.substr( space_pos + 1 );
-        } else
-        {
-            operation = user_input;
-        }
+        SplitCommand( TrimLine( user_input ), operation, value );
 
         if ( operation == to_string( Operation::Enqueue ) )
         {
             queue.Push( value );
         } else if ( operation == to_string( Operation::Dequeue ) )
         {
-            try
-            {
-                results.Push( queue.Pop() );
-            } catch ( Exception &e )
-            {
+            if ( queue.Empty() )
                 results.Push( "EMPTY" );
-            }
+            else
+                results.Push( queue.Pop() );
         } else if ( operation == to_string( Operation::Front ) )
         {
-            try
-            {
-                results.Push( queue.Front() );
-            } catch ( Exception &e )
-            {
+            if ( queue.Empty() )
                 results.Push( "EMPTY" );
-            }
+            else
+                results.Push( queue.Front() );
         } else if ( operation == to_string( Operation::Size ) )
         {
             results.Push( std::to_string( queue.Size() ) );
         } else if ( operation == to_string( Operation::Empty ) )
         {
-            if ( queue.Size() == 0 )
-            {
-                results.Push( "YES" );
-            } else
-            {
-                results.Push( "NO" );
-            }
+            results.Push( queue.Empty() ? "YES" : "NO" );
+        } else if ( !operation.empty() )
+        {
+            std::fprintf( stderr, "Unknown operation \"%s\" ignored.\n", operation.c_str() );
         }
-    } while ( numOperations >= 0 );
+    }
 
-    do
-    {
-        std::printf("%s\n", results.Pop().c_str() );
-    } while ( results.Size() > 0 );
+    PrintResults( results );
 
     return 0;
 }
-

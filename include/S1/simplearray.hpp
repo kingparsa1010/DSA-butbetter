@@ -1,5 +1,5 @@
 /**
-* Proprietary Source-Available License.
+ * Proprietary Source-Available License.
  *
  * Copyright (c) 2026 Weather. All Rights Reserved.
  *
@@ -11,6 +11,12 @@
 #define DSA_SIMPLEARRAY_HPP
 
 #include "../utils.h"
+
+#include <cstddef>
+#include <cstring>
+#include <string>
+#include <type_traits>
+#include <utility>
 
 extern "C" {
 typedef struct _SimpleByteArray SimpleByteArray;
@@ -27,19 +33,42 @@ extern STATUS SimpleByteArray_size( const SimpleByteArray *list, size_t *value )
 template <typename T>
 class SimpleArray
 {
+    // For byte arrays, T needs to be trivially copyable.
+    // Things like interfaces, mutated classes or ref counted objects cannot be copied!
+    // std::string is the one exception: it is serialized as [length][characters].
+    static_assert( std::is_same_v<T, std::string> || std::is_trivially_copyable_v<T>,
+                   "SimpleArray<T> requires a trivially copyable T (or std::string)." );
+
 public:
     SimpleArray()
     {
-        // For byte arrays, T needs to be trivially copyable.
-        // Things like interfaces, mutated classes or ref counted objects cannot be copied!
-        if constexpr ( !std::is_same_v<T, std::string> ) //Serialized strings implementation
-            static_assert( std::is_trivially_copyable_v<T> );
         check_st_( SimpleByteArray_init( &m_array ) );
     }
 
     ~SimpleArray()
     {
-        SimpleByteArray_free( m_array );
+        if ( m_array )
+            SimpleByteArray_free( m_array );
+    }
+
+    // The array owns a C handle: a shallow copy would free it twice.
+    SimpleArray( SimpleArray const & ) = delete;
+    SimpleArray &operator = ( SimpleArray const & ) = delete;
+
+    SimpleArray( SimpleArray &&other ) noexcept
+        : m_array( std::exchange( other.m_array, nullptr ) )
+    {
+    }
+
+    SimpleArray &operator = ( SimpleArray &&other ) noexcept
+    {
+        if ( this != &other )
+        {
+            if ( m_array )
+                SimpleByteArray_free( m_array );
+            m_array = std::exchange( other.m_array, nullptr );
+        }
+        return *this;
     }
 
     void
@@ -120,6 +149,17 @@ public:
         }
     }
 
+    // Replaces the element at index. The index is validated first, so a bad index never loses data.
+    void
+    Set( size_t index, T const &value )
+    {
+        if ( index >= Size() )
+            throw Exception( BOUNDS );
+
+        Remove( index );
+        Insert( index, value );
+    }
+
     size_t
     Find( T const &value ) const
     {
@@ -169,6 +209,15 @@ public:
             check_st_( SimpleByteArray_size( m_array, &byte_size ) );
             return byte_size / sizeof(T);
         }
+    }
+
+    bool
+    Empty() const
+    {
+        size_t byte_size{};
+
+        check_st_( SimpleByteArray_size( m_array, &byte_size ) );
+        return byte_size == 0;
     }
 
     // push front

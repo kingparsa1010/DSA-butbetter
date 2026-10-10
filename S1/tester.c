@@ -10,10 +10,9 @@
 #include <utils.h>
 
 #include <assert.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
-#include <time.h>
 
 typedef struct _SimpleByteArray SimpleByteArray;
 
@@ -158,7 +157,7 @@ static void test_head_tail_insertions()
     expect_ok( "free", SimpleByteArray_free( list ) );
 }
 
-/* Removalas */
+/* Removals */
 static void test_removals()
 {
     SimpleByteArray *list = NULL;
@@ -228,6 +227,113 @@ static void test_insert_bytes()
     expect_ok( "free", SimpleByteArray_free( list ) );
 }
 
+static void test_insert_bytes_middle()
+{
+    SimpleByteArray *list = NULL;
+    BYTE initial[] = { 1, 2, 5, 6 };
+    BYTE middle[] = { 3, 4 };
+    BYTE expected[] = { 1, 2, 3, 4, 5, 6 };
+
+    printf("test_insert_bytes_middle\n");
+
+    expect_ok( "init", SimpleByteArray_init( &list ) );
+    expect_ok( "insert initial", SimpleByteArray_insert_bytes( list, 0, initial, sizeof(initial) ) );
+    expect_ok( "insert middle", SimpleByteArray_insert_bytes( list, 2, middle, sizeof(middle) ) );
+
+    expect_bytes( list, expected, sizeof(expected) );
+
+    // inserting nothing is a no-op
+    expect_ok( "insert zero bytes", SimpleByteArray_insert_bytes( list, 3, middle, 0 ) );
+    expect_bytes( list, expected, sizeof(expected) );
+
+    // an out of bounds insertion must leave the list untouched
+    expect_status( "insert past the end", SimpleByteArray_insert_bytes( list, sizeof(expected) + 1, middle, sizeof(middle) ), BOUNDS );
+    expect_bytes( list, expected, sizeof(expected) );
+
+    // the tail must still be correct after the splice
+    expect_ok( "insert at tail", SimpleByteArray_insert( list, sizeof(expected), 7 ) );
+    expect_ok( "remove tail", SimpleByteArray_remove( list, sizeof(expected), NULL ) );
+    expect_bytes( list, expected, sizeof(expected) );
+
+    expect_ok( "free", SimpleByteArray_free( list ) );
+}
+
+/* ---------- Invalid arguments ---------- */
+
+static void test_invalid_arguments()
+{
+    SimpleByteArray *list = NULL;
+    BYTE value = 0;
+    size_t size = 0;
+
+    printf("test_invalid_arguments\n");
+
+    expect_status( "init(NULL)", SimpleByteArray_init( NULL ), POINTER );
+    expect_status( "free(NULL)", SimpleByteArray_free( NULL ), POINTER );
+    expect_status( "insert(NULL)", SimpleByteArray_insert( NULL, 0, 1 ), POINTER );
+    expect_status( "insert_bytes(NULL)", SimpleByteArray_insert_bytes( NULL, 0, &value, 1 ), POINTER );
+    expect_status( "remove(NULL)", SimpleByteArray_remove( NULL, 0, NULL ), POINTER );
+    expect_status( "get(NULL)", SimpleByteArray_get( NULL, 0, &value ), POINTER );
+    expect_status( "size(NULL)", SimpleByteArray_size( NULL, &size ), POINTER );
+
+    expect_ok( "init", SimpleByteArray_init( &list ) );
+    expect_ok( "insert", SimpleByteArray_insert( list, 0, 1 ) );
+
+    expect_status( "insert_bytes(values = NULL)", SimpleByteArray_insert_bytes( list, 0, NULL, 1 ), POINTER );
+    expect_status( "get(value = NULL)", SimpleByteArray_get( list, 0, NULL ), POINTER );
+    expect_status( "size(value = NULL)", SimpleByteArray_size( list, NULL ), POINTER );
+
+    expect_ok( "free", SimpleByteArray_free( list ) );
+}
+
+/* ---------- Growing and shrinking ---------- */
+
+static void test_grow_and_shrink()
+{
+    SimpleByteArray *list = NULL;
+    BYTE value = 0;
+    size_t size = 0;
+    size_t i;
+
+    printf("test_grow_and_shrink\n");
+
+    expect_ok( "init", SimpleByteArray_init( &list ) );
+
+    for ( i = 0; i < 1000; i++ )
+        expect_ok( "insert", SimpleByteArray_insert( list, i, (BYTE)(i & 0x7f) ) );
+
+    // remove every other element from the front half
+    for ( i = 0; i < 500; i++ )
+    {
+        expect_ok( "remove", SimpleByteArray_remove( list, i, &value ) );
+        assert( value == (BYTE)((2 * i) & 0x7f) );
+    }
+
+    expect_ok( "size", SimpleByteArray_size( list, &size ) );
+    assert( size == 500 );
+
+    for ( i = 0; i < 500; i++ )
+    {
+        expect_ok( "get", SimpleByteArray_get( list, i, &value ) );
+        assert( value == (BYTE)((2 * i + 1) & 0x7f) );
+    }
+
+    while ( size > 0 )
+    {
+        expect_ok( "remove last", SimpleByteArray_remove( list, size - 1, NULL ) );
+        size--;
+    }
+
+    expect_bytes( list, NULL, 0 );
+
+    // the list must still be usable after shrinking all the way down
+    expect_ok( "insert after shrink", SimpleByteArray_insert( list, 0, 42 ) );
+    expect_ok( "get after shrink", SimpleByteArray_get( list, 0, &value ) );
+    assert( value == 42 );
+
+    expect_ok( "free", SimpleByteArray_free( list ) );
+}
+
 /* ---------- Boundary indices ---------- */
 
 static void test_index_boundaries()
@@ -287,6 +393,9 @@ int main()
     test_head_tail_insertions();
     test_removals();
     test_insert_bytes();
+    test_insert_bytes_middle();
+    test_invalid_arguments();
+    test_grow_and_shrink();
     test_index_boundaries();
     test_repeated_lifecycle();
 

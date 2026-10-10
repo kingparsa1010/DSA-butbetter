@@ -1,0 +1,5 @@
+4
+APPEND keep
+SET 0
+GET 0
+PRINT

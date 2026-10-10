@@ -1,0 +1,7 @@
+6
+APPEND
+SET 0
+INSERT x y
+GET 3abc
+
+PRINT

@@ -7,6 +7,15 @@
  * Unauthorized copying, distribution, or modification is prohibited.
  */
 
+#ifndef DSA_UTILS_H
+#define DSA_UTILS_H
+
+#ifdef __cplusplus
+#include <cstddef>
+#else
+#include <stddef.h>
+#endif
+
 typedef char BYTE;
 typedef BYTE *PBYTE;
 
@@ -31,7 +40,7 @@ typedef enum _STATUS
 } STATUS;
 
 #define FAILED(st) ((STATUS)(st) > 0)
-#define RETURN_IF_FAILED(st) do { STATUS __stRet = st; if (FAILED(__stRet)) { return __stRet; }} while (0)
+#define RETURN_IF_FAILED(st) do { STATUS stRet_ = (st); if (FAILED(stRet_)) { return stRet_; }} while (0)
 
 
 #ifdef __cplusplus
@@ -56,6 +65,8 @@ struct Exception final : std::runtime_error
     }
 };
 
-#define check_st_( st ){ STATUS _status = st; if ( FAILED( _status ) ) throw Exception( _status ); }
+#define check_st_( st ) do { STATUS status_ = (st); if ( FAILED( status_ ) ) throw Exception( status_ ); } while (0)
 
-#endif
+#endif // __cplusplus
+
+#endif // DSA_UTILS_H

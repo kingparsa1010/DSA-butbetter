@@ -9,11 +9,8 @@
 
 #include <utils.h>
 
-#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
-#include <time.h>
 
 // Question 2: Implement a dynamic array with insertion and deletion.
 // Create a List type that stores elements in a dynamically allocated linked list.
@@ -49,14 +46,14 @@ STATUS SimpleByteArray_init( SimpleByteArray **out_list )
 
     if ( !out_list )
     {
-        printf("SimpleByteArray_init: out_list is nullptr!\n");
+        fprintf(stderr, "SimpleByteArray_init: out_list is nullptr!\n");
         return POINTER;
     }
 
     newList = (SimpleByteArray *)calloc( 1, sizeof(SimpleByteArray) );
     if ( !newList )
     {
-        printf("SimpleByteArray_init: failed to allocate list.\n");
+        fprintf(stderr, "SimpleByteArray_init: failed to allocate list.\n");
         return OUTOFMEMORY;
     }
 
@@ -76,7 +73,7 @@ STATUS SimpleByteArray_free( SimpleByteArray *in_list )
 
     if ( !in_list )
     {
-        printf("SimpleByteArray_free: in_list is nullptr!\n");
+        fprintf(stderr, "SimpleByteArray_free: in_list is nullptr!\n");
         return POINTER;
     }
 
@@ -102,13 +99,13 @@ STATUS SimpleByteArray_insert( SimpleByteArray *list, size_t index, BYTE value )
 
     if ( !list )
     {
-        printf("SimpleByteArray_insert: list is nullptr!\n");
+        fprintf(stderr, "SimpleByteArray_insert: list is nullptr!\n");
         return POINTER;
     }
 
     if ( index > list->size )
     {
-        printf("SimpleByteArray_insert: out of bounds insertion!\n");
+        fprintf(stderr, "SimpleByteArray_insert: out of bounds insertion!\n");
         return BOUNDS;
     }
 
@@ -153,18 +150,87 @@ STATUS SimpleByteArray_insert( SimpleByteArray *list, size_t index, BYTE value )
 
 STATUS SimpleByteArray_insert_bytes( SimpleByteArray *list, size_t index, const BYTE *values, size_t count )
 {
+    SimpleByteArrayNode *first = NULL;
+    SimpleByteArrayNode *last = NULL;
+    SimpleByteArrayNode *newNode = NULL;
+    SimpleByteArrayNode *current = NULL;
     size_t iterator;
 
-    if ( !values || !count )
+    if ( !list )
     {
-        printf("SimpleByteArray_insert_bytes: values is nullptr!\n");
+        fprintf(stderr, "SimpleByteArray_insert_bytes: list is nullptr!\n");
         return POINTER;
     }
 
+    if ( !values )
+    {
+        fprintf(stderr, "SimpleByteArray_insert_bytes: values is nullptr!\n");
+        return POINTER;
+    }
+
+    if ( index > list->size )
+    {
+        fprintf(stderr, "SimpleByteArray_insert_bytes: out of bounds insertion!\n");
+        return BOUNDS;
+    }
+
+    if ( !count )
+        return SUCCESS;
+
+    // build the whole chain first, so a failed allocation leaves the list untouched
     for ( iterator = 0; iterator < count; iterator++ )
     {
-        RETURN_IF_FAILED( SimpleByteArray_insert( list, index + iterator, values[iterator] ) );
+        newNode = (SimpleByteArrayNode *)malloc( sizeof(*newNode) );
+        if ( !newNode )
+        {
+            while ( first )
+            {
+                newNode = first->next;
+                free( first );
+                first = newNode;
+            }
+            fprintf(stderr, "SimpleByteArray_insert_bytes: failed to allocate nodes!\n");
+            return OUTOFMEMORY;
+        }
+
+        newNode->value = values[iterator];
+        newNode->next = NULL;
+
+        if ( last )
+            last->next = newNode;
+        else
+            first = newNode;
+
+        last = newNode;
     }
+
+    // then splice it in with a single walk, instead of one walk per byte
+    if ( index == 0 )
+    {
+        last->next = list->head;
+        list->head = first;
+
+        if ( !list->tail )
+            list->tail = last;
+    } else
+    {
+        if ( index == list->size )
+            current = list->tail;
+        else
+        {
+            current = list->head;
+            for ( iterator = 1 /* stop right before the dest node*/; iterator < index; iterator++ )
+                current = current->next;
+        }
+
+        last->next = current->next;
+        current->next = first;
+
+        if ( current == list->tail )
+            list->tail = last;
+    }
+
+    list->size += count;
 
     return SUCCESS;
 }
@@ -177,13 +243,13 @@ STATUS SimpleByteArray_remove( SimpleByteArray *list, size_t index, BYTE *opt_re
 
     if ( !list )
     {
-        printf("SimpleByteArray_remove: list is nullptr!\n");
+        fprintf(stderr, "SimpleByteArray_remove: list is nullptr!\n");
         return POINTER;
     }
 
     if ( list->size <= index )
     {
-        printf("SimpleByteArray_remove: out of bounds deletion!\n");
+        fprintf(stderr, "SimpleByteArray_remove: out of bounds deletion!\n");
         return BOUNDS;
     }
 
@@ -228,25 +294,19 @@ STATUS SimpleByteArray_get( const SimpleByteArray *list, size_t index, BYTE *val
 
     if ( !list )
     {
-        printf("SimpleByteArray_get: list is nullptr!\n");
+        fprintf(stderr, "SimpleByteArray_get: list is nullptr!\n");
         return POINTER;
-    }
-
-    if ( !list->head || !list->tail )
-    {
-        printf("SimpleByteArray_get: list is empty!\n");
-        return ILLEGAL_METHOD_CALL;
     }
 
     if ( !value )
     {
-        printf("SimpleByteArray_get: value is null!\n");
-        return ILLEGAL_METHOD_CALL;
+        fprintf(stderr, "SimpleByteArray_get: value is null!\n");
+        return POINTER;
     }
 
     if ( list->size <= index )
     {
-        printf("SimpleByteArray_get: out of bounds fetch!\n");
+        fprintf(stderr, "SimpleByteArray_get: out of bounds fetch!\n");
         return BOUNDS;
     }
 
@@ -263,14 +323,14 @@ STATUS SimpleByteArray_size( const SimpleByteArray *list, size_t *value )
 {
     if ( !list )
     {
-        printf("SimpleByteArray_size: list is nullptr!\n");
+        fprintf(stderr, "SimpleByteArray_size: list is nullptr!\n");
         return POINTER;
     }
 
     if ( !value )
     {
-        printf("SimpleByteArray_size: value is null!\n");
-        return ILLEGAL_METHOD_CALL;
+        fprintf(stderr, "SimpleByteArray_size: value is null!\n");
+        return POINTER;
     }
 
     *value = list->size;

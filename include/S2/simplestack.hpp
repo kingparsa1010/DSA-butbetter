@@ -1,5 +1,5 @@
 /**
-* Proprietary Source-Available License.
+ * Proprietary Source-Available License.
  *
  * Copyright (c) 2026 Weather. All Rights Reserved.
  *
@@ -11,6 +11,12 @@
 #define DSA_SIMPLESTACK_HPP
 
 #include "S1/simplearray.hpp"
+
+// The stack picks its "top" end based on the backing list, so one of these must be set.
+// Without it Push() would silently do nothing and Pop() would never remove anything.
+#if !defined( LINKED_LISTS ) && !defined( CONTIGUOUS_LISTS )
+#error "SimpleStack requires LINKED_LISTS or CONTIGUOUS_LISTS to be defined."
+#endif
 
 template <typename T>
 class SimpleStack :
@@ -25,7 +31,7 @@ public:
     {
         T value{};
 
-        if ( this->Size() == 0 )
+        if ( this->Empty() )
             throw Exception( STACK_UNDERFLOW );
 
 #ifdef LINKED_LISTS
@@ -55,7 +61,7 @@ public:
     T
     Top() const
     {
-        if ( this->Size() == 0 )
+        if ( this->Empty() )
             throw Exception( STACK_UNDERFLOW );
 #ifdef LINKED_LISTS
         return this->Get( 0 );

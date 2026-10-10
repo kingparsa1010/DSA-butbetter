@@ -14,16 +14,14 @@
  * Simple Stack Implementation: */ #include <S2/simplestack.hpp> /*
  */
 
-#include <string>
+#include <cstdio>
 #include <iostream>
-#include <algorithm>
+#include <string>
 
 // ---- brackettester.cpp ---- //
 int main()
 {
     std::string user_input{};
-    SimpleStack<BYTE> input{};
-    BYTE value{};
     enum class Nest {
         Bracket,
         Parentheses,
@@ -31,65 +29,47 @@ int main()
     };
     SimpleStack<Nest> nest{};
 
-    std::cin >> user_input;
+    // Read the whole line, so input with spaces like "( [ ] )" is tested in full.
+    std::getline( std::cin, user_input );
 
-    std::reverse( user_input.begin(), user_input.end() );
-
-    for ( unsigned char c : user_input )
-        input.Push( c );
-
-    do
+    for ( char value : user_input )
     {
-        try
+        Nest expected;
+
+        switch ( value )
         {
-            value = input.Pop();
-            if ( value == '(' )
-            {
+            case '(':
                 nest.Push( Nest::Parentheses );
-            }
-            else if ( value == ')' )
-            {
-                if ( nest.Size() == 0 || nest.Pop() != Nest::Parentheses )
-                {
-                    std::printf("NO\n");
-                    return 0;
-                }
-            }
-            else if ( value == '{' )
-            {
+                continue;
+            case '{':
                 nest.Push( Nest::Brace );
-            }
-            else if ( value == '}' )
-            {
-                if ( nest.Size() == 0 || nest.Pop() != Nest::Brace )
-                {
-                    std::printf("NO\n");
-                    return 0;
-                }
-            }
-            else if ( value == '[' )
-            {
+                continue;
+            case '[':
                 nest.Push( Nest::Bracket );
-            }
-            else if ( value == ']' )
-            {
-                if ( nest.Size() == 0 || nest.Pop() != Nest::Bracket )
-                {
-                    std::printf("NO\n");
-                    return 0;
-                }
-            }
-        } catch ( ... )
+                continue;
+            case ')':
+                expected = Nest::Parentheses;
+                break;
+            case '}':
+                expected = Nest::Brace;
+                break;
+            case ']':
+                expected = Nest::Bracket;
+                break;
+            default:
+                // Not a bracket, ignore it.
+                continue;
+        }
+
+        // A closing bracket must match the most recent unclosed opening one.
+        if ( nest.Empty() || nest.Pop() != expected )
         {
             std::printf("NO\n");
             return 0;
         }
-    } while ( input.Size() > 0 );
+    }
 
-    if ( nest.Size() == 0 )
-        std::printf("YES\n");
-    else
-        std::printf("NO\n");
+    std::printf( nest.Empty() ? "YES\n" : "NO\n" );
 
     return 0;
 }

@@ -1,0 +1,10 @@
+9
+PUSH hello
+PUSH world wide
+TOP
+SIZE
+POP
+POP
+POP
+EMPTY
+PUSH

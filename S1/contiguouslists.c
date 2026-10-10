@@ -9,11 +9,9 @@
 
 #include <utils.h>
 
-#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <time.h>
 
 
 // Question 1: Implement a dynamic array with insertion and deletion.
@@ -44,14 +42,14 @@ STATUS SimpleByteArray_init( SimpleByteArray **out_list )
 
     if ( !out_list )
     {
-        printf("SimpleByteArray_init: out_list is nullptr!\n");
+        fprintf(stderr, "SimpleByteArray_init: out_list is nullptr!\n");
         return POINTER;
     }
 
     newList = (SimpleByteArray *)calloc( 1, sizeof(SimpleByteArray) );
     if ( !newList )
     {
-        printf("SimpleByteArray_init: failed to allocate list.\n");
+        fprintf(stderr, "SimpleByteArray_init: failed to allocate list.\n");
         return OUTOFMEMORY;
     }
 
@@ -63,7 +61,8 @@ STATUS SimpleByteArray_init( SimpleByteArray **out_list )
     newList->array = (PBYTE)malloc( newList->capacity * sizeof( *newList->array ) );
     if ( !newList->array )
     {
-        printf("SimpleByteArray_init: failed to allocate list array!\n");
+        fprintf(stderr, "SimpleByteArray_init: failed to allocate list array!\n");
+        free( newList );
         return OUTOFMEMORY;
     }
 
@@ -76,14 +75,14 @@ STATUS SimpleByteArray_free( SimpleByteArray *in_list )
 {
     if ( !in_list )
     {
-        printf("SimpleByteArray_free: in_list is nullptr!\n");
+        fprintf(stderr, "SimpleByteArray_free: in_list is nullptr!\n");
         return POINTER;
     }
 
     // capacity = 0 -> list has been freed already!
     if ( in_list->capacity == 0 )
     {
-        printf("SimpleByteArray_free: in_list has already been freed!\n");
+        fprintf(stderr, "SimpleByteArray_free: in_list has already been freed!\n");
         return ILLEGAL_METHOD_CALL;
     }
 
@@ -105,19 +104,19 @@ STATUS SimpleByteArray_insert( SimpleByteArray *list, size_t index, BYTE value )
 
     if ( !list )
     {
-        printf("SimpleByteArray_insert: list is nullptr!\n");
+        fprintf(stderr, "SimpleByteArray_insert: list is nullptr!\n");
         return POINTER;
     }
 
     if ( !list->capacity )
     {
-        printf("SimpleByteArray_insert: list has already been freed!\n");
+        fprintf(stderr, "SimpleByteArray_insert: list has already been freed!\n");
         return ILLEGAL_METHOD_CALL;
     }
 
     if ( list->size < index )
     {
-        printf("SimpleByteArray_insert: out of bounds insertion!\n");
+        fprintf(stderr, "SimpleByteArray_insert: out of bounds insertion!\n");
         return BOUNDS;
     }
 
@@ -127,7 +126,7 @@ STATUS SimpleByteArray_insert( SimpleByteArray *list, size_t index, BYTE value )
         tmpArray = (PBYTE)realloc( (void *)list->array, (list->capacity * 2) * sizeof(*list->array) );
         if ( !tmpArray )
         {
-            printf("SimpleByteArray_insert: failed to grow list array!\n");
+            fprintf(stderr, "SimpleByteArray_insert: failed to grow list array!\n");
             return OUTOFMEMORY;
         }
         list->array = tmpArray;
@@ -146,18 +145,57 @@ STATUS SimpleByteArray_insert( SimpleByteArray *list, size_t index, BYTE value )
 
 STATUS SimpleByteArray_insert_bytes( SimpleByteArray *list, size_t index, const BYTE *values, size_t count )
 {
-    size_t iterator;
+    PBYTE tmpArray = NULL;
+    size_t newCapacity;
 
-    if ( !values || !count )
+    if ( !list )
     {
-        printf("SimpleByteArray_insert_bytes: values is nullptr!\n");
+        fprintf(stderr, "SimpleByteArray_insert_bytes: list is nullptr!\n");
         return POINTER;
     }
 
-    for ( iterator = 0; iterator < count; iterator++ )
+    if ( !values )
     {
-        RETURN_IF_FAILED( SimpleByteArray_insert( list, index + iterator, values[iterator] ) );
+        fprintf(stderr, "SimpleByteArray_insert_bytes: values is nullptr!\n");
+        return POINTER;
     }
+
+    if ( !count )
+        return SUCCESS;
+
+    if ( !list->capacity )
+    {
+        fprintf(stderr, "SimpleByteArray_insert_bytes: list has already been freed!\n");
+        return ILLEGAL_METHOD_CALL;
+    }
+
+    if ( list->size < index )
+    {
+        fprintf(stderr, "SimpleByteArray_insert_bytes: out of bounds insertion!\n");
+        return BOUNDS;
+    }
+
+    // grow by 2x until everything fits, with a single reallocation
+    newCapacity = list->capacity;
+    while ( newCapacity - list->size < count )
+        newCapacity *= 2;
+
+    if ( newCapacity != list->capacity )
+    {
+        tmpArray = (PBYTE)realloc( (void *)list->array, newCapacity * sizeof(*list->array) );
+        if ( !tmpArray )
+        {
+            fprintf(stderr, "SimpleByteArray_insert_bytes: failed to grow list array!\n");
+            return OUTOFMEMORY;
+        }
+        list->array = tmpArray;
+        list->capacity = newCapacity;
+    }
+
+    // shift the tail once, instead of once per inserted byte
+    memmove( list->array + index + count, list->array + index, (list->size - index) * sizeof(*list->array) );
+    memcpy( list->array + index, values, count * sizeof(*list->array) );
+    list->size += count;
 
     return SUCCESS;
 }
@@ -169,19 +207,19 @@ STATUS SimpleByteArray_remove( SimpleByteArray *list, size_t index, BYTE *opt_re
 
     if ( !list )
     {
-        printf("SimpleByteArray_remove: list is nullptr!\n");
+        fprintf(stderr, "SimpleByteArray_remove: list is nullptr!\n");
         return POINTER;
     }
 
     if ( !list->capacity )
     {
-        printf("SimpleByteArray_remove: list has already been freed!\n");
+        fprintf(stderr, "SimpleByteArray_remove: list has already been freed!\n");
         return ILLEGAL_METHOD_CALL;
     }
 
     if ( list->size <= index )
     {
-        printf("SimpleByteArray_remove: out of bounds deletion!\n");
+        fprintf(stderr, "SimpleByteArray_remove: out of bounds deletion!\n");
         return BOUNDS;
     }
     if ( opt_removed )
@@ -211,25 +249,25 @@ STATUS SimpleByteArray_get( const SimpleByteArray *list, size_t index, BYTE *val
 {
     if ( !list )
     {
-        printf("SimpleByteArray_get: list is nullptr!\n");
+        fprintf(stderr, "SimpleByteArray_get: list is nullptr!\n");
         return POINTER;
     }
 
     if ( !list->capacity )
     {
-        printf("SimpleByteArray_get: list has already been freed!\n");
+        fprintf(stderr, "SimpleByteArray_get: list has already been freed!\n");
         return ILLEGAL_METHOD_CALL;
     }
 
     if ( !value )
     {
-        printf("SimpleByteArray_get: value is null!\n");
-        return ILLEGAL_METHOD_CALL;
+        fprintf(stderr, "SimpleByteArray_get: value is null!\n");
+        return POINTER;
     }
 
     if ( list->size <= index )
     {
-        printf("SimpleByteArray_get: out of bounds fetch!\n");
+        fprintf(stderr, "SimpleByteArray_get: out of bounds fetch!\n");
         return BOUNDS;
     }
 
@@ -242,20 +280,20 @@ STATUS SimpleByteArray_size( const SimpleByteArray *list, size_t *value )
 {
     if ( !list )
     {
-        printf("SimpleByteArray_size: list is nullptr!\n");
+        fprintf(stderr, "SimpleByteArray_size: list is nullptr!\n");
         return POINTER;
     }
 
     if ( !list->capacity )
     {
-        printf("SimpleByteArray_size: list has already been freed!\n");
+        fprintf(stderr, "SimpleByteArray_size: list has already been freed!\n");
         return ILLEGAL_METHOD_CALL;
     }
 
     if ( !value )
     {
-        printf("SimpleByteArray_size: value is null!\n");
-        return ILLEGAL_METHOD_CALL;
+        fprintf(stderr, "SimpleByteArray_size: value is null!\n");
+        return POINTER;
     }
 
     *value = list->size;

@@ -1,5 +1,5 @@
 /**
-* Proprietary Source-Available License.
+ * Proprietary Source-Available License.
  *
  * Copyright (c) 2026 Weather. All Rights Reserved.
  *
@@ -29,7 +29,7 @@ public:
     T
     Pop()
     {
-        if ( this->Size() == 0 )
+        if ( this->Empty() )
             throw Exception( STACK_UNDERFLOW );
 
         T value = this->Get( 0 );
@@ -41,7 +41,7 @@ public:
     T
     Front() const
     {
-        if ( this->Size() == 0 )
+        if ( this->Empty() )
             throw Exception( STACK_UNDERFLOW );
 
         return this->Get( 0 );
